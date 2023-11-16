@@ -1,9 +1,8 @@
 import requests as reqs
 from kubernetes import client, config
-import json
 import os
-import time 
 import sys
+import time
 
 #Globals, probably worth adding in some sort of direct failure here if these are not set
 APIKEY = os.getenv("APIKEY")
@@ -22,10 +21,17 @@ def scanMissingImages(images):
     
     for missingImage in images:
 
+        modifiedImage = missingImage.replace(':', '_')
+        
+        #change out depending on what socket we can mount on the host
+        #cmd = 'docker tag {} {}'.format(missingImage, modifiedImage)
+        cmd = 'ctr --namespace=k8s.io images tag{} {}'.format(missingImage, modifiedImage)
+        os.system(cmd)
         #projectName = missingImage.replace(":", "_")
         #cmd = '/usr/app/sec/snyk container monitor {} --org={} --tags=kubernetes=monitored'.format(missingImage, orgId)
+
         print("Scanning {}".format(missingImage))
-        cmd = '/usr/local/bin/snyk container monitor {} --org={} --tags=kubernetes=monitored '.format(missingImage, ORGID)
+        cmd = '/usr/local/bin/snyk container monitor {} --org={} --tags=kubernetes=monitored '.format(modifiedImage, ORGID)
         os.system(cmd)
 
 
@@ -79,21 +85,27 @@ def deleteNonRunningTargets():
         print("If this error looks abnormal please check https://status.snyk.io/ for any incidents")
         raise ex        
 
-   #There is a lot changing here, because of that there is (will be) a ton of commented out logic as I try to enable this to work with the nextPageKey logic
-   #for containerImage in containerResponseJSON['data']:
+
+    #There is a lot changing here, because of that there is (will be) a ton of commented out logic as I try to enable this to work with the nextPageKey logic
+    replaceFunc = lambda x: x.replace(":", "_")
+    allRunningPods_ = list(map(replaceFunc, allRunningPods))
     for containerImage in fullListofContainers:
 
         #image that is not running on the cluster
+        #TODO: There is a scenario here where an image might not be listed in all running pods (when we replace : with _)
+        #might have to put in place some logic to change the _ to : while doing the logic here. something like If imageName not in allrunningPods and imageName not in allRunningPods_
+
         for imageName in containerImage['attributes']['names']:
-            if imageName not in allRunningPods:
+
+            imageTagStripped = imageName.split(':')
+            imageTagStripped = imageTagStripped[0]
+            if imageName not in allRunningPods and imageTagStripped not in allRunningPods_ and "@" not in imageName:
 
                 #TODO: change the split to replace for '_', depending on the workflow it may make more sense to create targets with <image>_<version>
                 #This really doesnt do much since it doesnt break it up in the UI. Long term itll be better to 'docker tag _' instead
                 #If thats not the way we do it, possibly removing all this and deleting on the project level (and target if the target has no projects associated with it)
                 #but that would require more logic and API calls. Mounting the docker socket might just be easier ¯\_(ツ)_/¯ 
-                imageTagStripped = imageName.split(':')
 
-                imageTagStripped = imageTagStripped[0]
                 for target in targetResponseJSON['data']:
                     if target['attributes']['displayName'] == imageTagStripped:
                         deleteTargetURL = "https://api.snyk.io/rest/orgs/{}/targets/{}?version={}".format(ORGID,target['id'], SNYKAPIVERSION)
@@ -158,6 +170,8 @@ for pod in v1.list_pod_for_all_namespaces().items:
                 needsToBeScanned.append(image)
 
 
+
+
 #Do the work we have set out to do
 if len(needsToBeScanned) != 0:
     scanMissingImages(needsToBeScanned)
@@ -166,6 +180,6 @@ else:
 
 #If it seems like data isnt present when it should be, from Snyk, then consider adding a sleep here to compensate.
 deleteNonRunningTargets()
-
-#clean exit so our K8s 
+time.sleep(500000)
+#clean exit so our K8s job doesnt error out
 sys.exit()

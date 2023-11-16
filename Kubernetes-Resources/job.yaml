@@ -7,6 +7,13 @@ spec:
   template:
     spec:
       serviceAccountName: snyk-reconciler
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: '/var/run/containerd/containerd.sock'
+        - name: containerd-images
+          hostPath:
+            path: '/var/lib/containerd'
       containers:
       - image: a1doll/k8sreconciler:latest
         name: snyk-reconciler
@@ -14,10 +21,17 @@ spec:
         imagePullPolicy: Always
         env:
         - name: APIKEY
-          value: "<SNYK_API_KEY>"
+          value: "Token a2de3794-00e4-49c8-8736-b37b3a3d25ca"
         - name: ORGID
-          value: "<SNYK_ORGID"
+          value: "8a6554e2-1bdf-42a5-b21c-01f63d5ae7cd"
         - name: SNYKAPIVERSION
-          value: "<SNYK_REST_VERSION>"
+          value: "2023-11-06~beta"
+        volumeMounts:
+          - mountPath: /run/containerd/containerd.sock
+            name: docker-sock
+            readOnly: false
+          - mountPath: /var/lib/containerd
+            name: containerd-images
+            readOnly: false
       restartPolicy: Never
 status: {}
