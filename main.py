@@ -19,19 +19,22 @@ def scanMissingImages(images):
     cmd = '/usr/local/bin/snyk auth {}'.format(splitKey[1])
     os.system(cmd)
     
+    print(images)
     for missingImage in images:
 
         modifiedImage = missingImage.replace(':', '_')
         
         #change out depending on what socket we can mount on the host
+        
+        print("Re-tagging {} to {}".format(missingImage, modifiedImage))
         #cmd = 'docker tag {} {}'.format(missingImage, modifiedImage)
-        cmd = 'ctr --namespace=k8s.io images tag{} {}'.format(missingImage, modifiedImage)
+        cmd = 'ctr --namespace=k8s.io images tag {} {}'.format(missingImage, modifiedImage)
         os.system(cmd)
         #projectName = missingImage.replace(":", "_")
         #cmd = '/usr/app/sec/snyk container monitor {} --org={} --tags=kubernetes=monitored'.format(missingImage, orgId)
 
-        print("Scanning {}".format(missingImage))
-        cmd = '/usr/local/bin/snyk container monitor {} --org={} --tags=kubernetes=monitored '.format(modifiedImage, ORGID)
+        print("Scanning {}".format(modifiedImage))
+        cmd = '/usr/local/bin/snyk container monitor -d {} --org={} --tags=kubernetes=monitored '.format(modifiedImage, ORGID)
         os.system(cmd)
 
 
@@ -86,9 +89,9 @@ def deleteNonRunningTargets():
         raise ex        
 
 
-    #There is a lot changing here, because of that there is (will be) a ton of commented out logic as I try to enable this to work with the nextPageKey logic
     replaceFunc = lambda x: x.replace(":", "_")
     allRunningPods_ = list(map(replaceFunc, allRunningPods))
+
     for containerImage in fullListofContainers:
 
         #image that is not running on the cluster
@@ -132,18 +135,24 @@ needsToBeScanned = []
 
 
 for pod in v1.list_pod_for_all_namespaces().items:
-    #print(pod.status.container_statuses[0].image)
     
     #TODO: change logic to use this, we can check the image and the ID. This works if no tag is defined.
+    multiContainerPod = pod.status.container_statuses
     containerID = pod.status.container_statuses[0].image
+
+
     for container in pod.spec.containers: 
         image= container.image
 
 
-        ##TODO: if you dont set a tag in k8s, it looks like the image comes back like 'doll1av/frontend', Snyk automatically adds the SHA which I think it gets from the 
-        #containerID, using this as a workaround (possibly forever but idk)
+        ##TODO: if the image we got is the image SHA, which contains @ instead of :, we wnat to cycle through our object (only multi container pod) to get the imageID
+        #Which will be in the expected format. This happens when you deploy an image without a tag EG: doll1av/frontend instead of doll1av/frontend:latest
+        #This also helps later where when using containerd you need the Fully qualified image name to actually tag images EG: docker.io/doll1av/frontend:latest
         if ':' not in image:
-            image = containerID
+            for imagesInContainer in multiContainerPod:
+                if image in imagesInContainer.image:
+                    image = imagesInContainer.image
+
 
         allRunningPods.append(image)
         
@@ -159,7 +168,8 @@ for pod in v1.list_pod_for_all_namespaces().items:
             raise ex
         except reqs.Timeout:
             print("ERROR: Request to the container_images endpoint timed out for image {}".format(image))
-        
+            print("If this error looks abnormal please check https://status.snyk.io/ for any incidents")
+
         #These are running on the API server but do not exist in Snyk
         #The None only works if the image has NEVER been scanned, after it has been scanned it we keep some data around
         #if responseJSON.get('data') == None:
@@ -180,6 +190,6 @@ else:
 
 #If it seems like data isnt present when it should be, from Snyk, then consider adding a sleep here to compensate.
 deleteNonRunningTargets()
-time.sleep(500000)
+
 #clean exit so our K8s job doesnt error out
 sys.exit()
