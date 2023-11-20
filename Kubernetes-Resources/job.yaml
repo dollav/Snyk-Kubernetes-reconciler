@@ -21,9 +21,9 @@ spec:
         imagePullPolicy: Always
         env:
         - name: APIKEY
-          value: "Token a2de3794-00e4-49c8-8736-b37b3a3d25ca"
+          value: ""
         - name: ORGID
-          value: "8a6554e2-1bdf-42a5-b21c-01f63d5ae7cd"
+          value: ""
         - name: SNYKAPIVERSION
           value: "2023-11-06~beta"
         volumeMounts:
