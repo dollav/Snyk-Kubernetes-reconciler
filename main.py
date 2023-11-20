@@ -22,14 +22,18 @@ def scanMissingImages(images):
     print(images)
     for missingImage in images:
 
+        #tag = missingImage.split(":")
+        #tag = tag[1]
         modifiedImage = missingImage.replace(':', '_')
         
         #change out depending on what socket we can mount on the host
-        
         print("Re-tagging {} to {}".format(missingImage, modifiedImage))
-        #cmd = 'docker tag {} {}'.format(missingImage, modifiedImage)
-        cmd = 'ctr --namespace=k8s.io images tag {} {}'.format(missingImage, modifiedImage)
+        cmd = 'docker tag {} {}'.format(missingImage, modifiedImage)
+        #cmd = 'ctr images pull {}'.format(missingImage)
         os.system(cmd)
+        #cmd = 'ctr --namespace=k8s.io images tag {} {}'.format(missingImage, modifiedImage)
+        #cmd = 'ctr images tag {} {}:{}'.format(missingImage, modifiedImage, tag)
+        #os.system(cmd)
         #projectName = missingImage.replace(":", "_")
         #cmd = '/usr/app/sec/snyk container monitor {} --org={} --tags=kubernetes=monitored'.format(missingImage, orgId)
 
@@ -47,7 +51,7 @@ def deleteNonRunningTargets():
         containerResponseJSON = containerResponse.json()
         fullListofContainers = list(containerResponseJSON['data'])
         containerResponse.raise_for_status()
-        while(containerResponseJSON.get('data') != None):
+        while(containerResponseJSON.get('data') != None and 'Next' in containerResponseJSON['links'] ):
             containerResponse = reqs.get("https://api.snyk.io/{}&version={}".format(containerResponseJSON['links']['next'], SNYKAPIVERSION))
             containerResponseJSON = containerResponse.json()
             if containerResponseJSON.get('Data') != None:

@@ -6,11 +6,11 @@ WORKDIR /usr/app/sec
 
 COPY . ./
 
-RUN apt-get update
-RUN apt-get -y install apt-transport-https ca-certificates gnupg software-properties-common
 RUN install -m 0755 -d /etc/apt/keyrings
 RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 RUN chmod a+r /etc/apt/keyrings/docker.gpg
+RUN apt-get update
+RUN apt-get -y install apt-transport-https ca-certificates gnupg software-properties-common
 
 RUN echo \
   "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
