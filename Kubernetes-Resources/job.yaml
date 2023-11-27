@@ -10,7 +10,7 @@ spec:
       volumes:
         - name: docker-sock
           hostPath:
-            path: '/var/run/containerd/containerd.sock'
+            path: '/var/run/'
         - name: containerd-images
           hostPath:
             path: '/var/lib/containerd'
@@ -27,7 +27,7 @@ spec:
         - name: SNYKAPIVERSION
           value: "2023-11-06~beta"
         volumeMounts:
-          - mountPath: /run/containerd/containerd.sock
+          - mountPath: /var/run/
             name: docker-sock
             readOnly: false
           - mountPath: /var/lib/containerd

@@ -19,7 +19,6 @@ def scanMissingImages(images):
     cmd = '/usr/local/bin/snyk auth {}'.format(splitKey[1])
     os.system(cmd)
     
-    print(images)
     for missingImage in images:
 
         #tag = missingImage.split(":")
@@ -35,10 +34,10 @@ def scanMissingImages(images):
         #cmd = 'ctr images tag {} {}:{}'.format(missingImage, modifiedImage, tag)
         #os.system(cmd)
         #projectName = missingImage.replace(":", "_")
-        #cmd = '/usr/app/sec/snyk container monitor {} --org={} --tags=kubernetes=monitored'.format(missingImage, orgId)
+        cmd = '/usr/local/bin/snyk container monitor {} --org={} --tags=kubernetes=monitored'.format(missingImage, ORGID)
 
         print("Scanning {}".format(modifiedImage))
-        cmd = '/usr/local/bin/snyk container monitor -d {} --org={} --tags=kubernetes=monitored '.format(modifiedImage, ORGID)
+        #cmd = '/usr/local/bin/snyk container monitor -d {} --org={} --tags=kubernetes=monitored '.format(modifiedImage, ORGID)
         os.system(cmd)
 
 
@@ -54,9 +53,8 @@ def deleteNonRunningTargets():
         while(containerResponseJSON.get('data') != None and 'Next' in containerResponseJSON['links'] ):
             containerResponse = reqs.get("https://api.snyk.io/{}&version={}".format(containerResponseJSON['links']['next'], SNYKAPIVERSION))
             containerResponseJSON = containerResponse.json()
-            if containerResponseJSON.get('Data') != None:
+            if containerResponseJSON.get('data') != None:
                 fullListofContainers.append(containerResponseJSON['data'])
-
 
     except reqs.HTTPError as ex:
         print("ERROR: some error occured dumping target JSON {}".format(containerResponseJSON))
@@ -77,11 +75,11 @@ def deleteNonRunningTargets():
         targetResponse.raise_for_status()
         fullListofTargets = list(targetResponseJSON['data'])
 
-        while(targetResponseJSON.get('data') != None and 'Next' in targetResponseJSON['links'] ):
-            targetResponse = reqs.get("https://api.snyk.io/{}&version={}".format(targetResponseJSON['links']['next'], SNYKAPIVERSION))
-            targetResponseJSON = containerResponse.json()
-            if targetResponseJSON.get('Data') != None:
-                fullListofTargets.append(containerResponseJSON['data'])
+        while(targetResponseJSON.get('data') != None and 'next' in targetResponseJSON['links'] ):
+            targetResponse = reqs.get("https://api.snyk.io/rest/{}".format(targetResponseJSON['links']['next'], SNYKAPIVERSION), headers={'Authorization': '{}'.format(APIKEY)})
+            targetResponseJSON = targetResponse.json()
+            if targetResponseJSON.get('data') != None:
+                fullListofTargets.append(targetResponseJSON['data'])
 
     except reqs.HTTPError as ex:
         print("ERROR: some error occured dumping target JSON {}".format(targetResponseJSON))
