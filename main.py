@@ -8,6 +8,11 @@ APIKEY = os.getenv("APIKEY")
 ORGID = os.getenv("ORGID")
 SNYKAPIVERSION = os.getenv("SNYKAPIVERSION")
 SNYKDEBUG = os.getenv("SNYKDEBUG")
+DOCKERPASSWORD = os.getenv("DOCKERPASSWORD")
+DOCKERUSER = os.getenv("DOCKERUSER")
+
+APIKEY = "Token " + APIKEY
+
 
 #Scan any missing images, 'images' should be a iterable list
 #We can modify the arguments of Snyk Container to include tags which can then be used to create project views or import metadata from the pods if needed
@@ -25,9 +30,9 @@ def scanMissingImages(images):
         print("Scanning {}".format(missingImage))
 
         if bool(SNYKDEBUG) == True:
-            cmd = '/usr/local/bin/snyk container monitor {} -d --org={} --tags=kubernetes=monitored'.format(missingImage, ORGID)
+            cmd = '/usr/local/bin/snyk container monitor {} -d --org={} --username={} --password={} --tags=kubernetes=monitored'.format(missingImage, ORGID, DOCKERUSER, DOCKERPASSWORD)
         else:
-            cmd = '/usr/local/bin/snyk container monitor {} --org={} --tags=kubernetes=monitored'.format(missingImage, ORGID)
+            cmd = '/usr/local/bin/snyk container monitor {} --org={} --username={} --password={} --tags=kubernetes=monitored'.format(missingImage, ORGID, DOCKERUSER, DOCKERPASSWORD)
 
         os.system(cmd)
 

@@ -6,8 +6,13 @@ Stop-gap visibility while V3 of the enterprise monitor is not GA
 
 To deploy the K8s reconciler, you will first need to create the relevant Role resources; within the K8s folder, there is a file roleResources.yaml which contains: A serviceAccount, ClusterRole, ClusterRoleBinding. The serviceAccount gets mounted into the pod and the cluster scope is needed to grab all pods, to deploy you need to run 'kubectl apply -f roleResources.yaml'. If there is an issue deploying this file, you can apply them individually as well.
 
-Once the Resources are created you will need to modify the 'job.yaml' to include your environment variables (This will most likely be changed to a configmap in the future). After adding in your vars, you can run a job with 'kubectl apply -f job.yaml'. If you are looking to do cadenced runs you can easily convert this to a cronjob (https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
+Once the Resources are created you will need to create a secret named 'snyk-creds' in the namespace your job runs. The following command can be used to generate the secret, there is no need to include the `Token` prefix for your APITOKEN:
+```
+kubectl create secret generic snyk-creds \                       
+        --from-literal=DOCKERUSERNAME=myUsername \
+        --from-literal=DOCKERPASSWORD=myPassword \
+        --from-literal=ORGID=mySnykOrg \
+        --from-literal=APITOKEN=myToken
+```
+After creating your secret, you can run a job with 'kubectl apply -f job.yaml'. If you are looking to do cadenced runs you can easily convert this to a cronjob (https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
 
-# Troubleshooting
-
-Depending on the CRI you may need to modify both the script and the (cron)job. If you are using containerd you'll have to replace the 'docker tag {}{} with' 'crictl', as well as change the socket mounts in the job YAML file to reflect the underlying CRI. The dockerfile does come with the config for both crictl/docker-cli, one or the other can be removed and this can be rebuilt without the other to trim down on image size.
