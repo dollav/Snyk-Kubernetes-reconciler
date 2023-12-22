@@ -1,10 +1,7 @@
 import requests as reqs
 from kubernetes import client, config
-import json
 import os
-import time 
 import sys
-#import time
 
 #Globals, probably worth adding in some sort of direct failure here if these are not set
 APIKEY = os.getenv("APIKEY")
@@ -24,21 +21,7 @@ def scanMissingImages(images):
     
     for missingImage in images:
 
-        #tag = missingImage.split(":")
-        #tag = tag[1]
-        #modifiedImage = missingImage.replace(':', '_')
-        
-        #change out depending on what socket we can mount on the host
-        #print("Re-tagging {} to {}".format(missingImage, modifiedImage))
-        #cmd = 'docker tag {} {}'.format(missingImage, modifiedImage)
-        #cmd = 'ctr images pull {}'.format(missingImage)
-        #os.system(cmd)
 
-
-        #cmd = 'ctr --namespace=k8s.io images tag {} {}'.format(missingImage, modifiedImage)
-        #cmd = 'ctr images tag {} {}:{}'.format(missingImage, modifiedImage, tag)
-        #os.system(cmd)
-        #projectName = missingImage.replace(":", "_")
         print("Scanning {}".format(missingImage))
 
         if bool(SNYKDEBUG) == True:
@@ -46,7 +29,6 @@ def scanMissingImages(images):
         else:
             cmd = '/usr/local/bin/snyk container monitor {} --org={} --tags=kubernetes=monitored'.format(missingImage, ORGID)
 
-        #cmd = '/usr/local/bin/snyk container monitor -d {} --org={} --tags=kubernetes=monitored '.format(modifiedImage, ORGID)
         os.system(cmd)
 
 
@@ -77,11 +59,6 @@ def deleteNonRunningTargets():
         raise ex
 
 
-
-
-
-
-    #My cluster is small, the logic for this appears to be different from the above so idk if the while loop check works :(
     try:
         allTargetsUrl = "https://api.snyk.io/rest/orgs/{}/targets?version={}".format(ORGID, SNYKAPIVERSION)
         targetResponse = reqs.get(allTargetsUrl, headers={'Authorization': '{}'.format(APIKEY)})
@@ -105,10 +82,9 @@ def deleteNonRunningTargets():
         raise ex        
 
 
-    replaceFunc = lambda x: x.replace(":", "_")
-    allRunningPods_ = list(map(replaceFunc, allRunningPods))
-   #There is a lot changing here, because of that there is (will be) a ton of commented out logic as I try to enable this to work with the nextPageKey logic
-   #for containerImage in containerResponseJSON['data']:
+
+    #There is a lot changing here, because of that there is (will be) a ton of commented out logic as I try to enable this to work with the nextPageKey logic
+    #for containerImage in containerResponseJSON['data']:
     for containerImage in fullListofContainers:
 
         #Snyk keeps deleted images around for 8 days, there shouldn't be target refs for images that have been deleted
@@ -123,10 +99,7 @@ def deleteNonRunningTargets():
             imageTagStripped = imageName.split(':')
             imageTagStripped = imageTagStripped[0]
 
-            imageName_ = imageTagStripped[0] + '_' + imageTagStripped[1]
-
-
-            if imageName not in allRunningPods and imageName_ not in allRunningPods_ and "@" not in imageName:
+            if imageName not in allRunningPods and "@" not in imageName:
 
                 #TODO: change the split to replace for '_', depending on the workflow it may make more sense to create targets with <image>_<version>
                 #This really doesnt do much since it doesnt break it up in the UI. Long term itll be better to 'docker tag _' instead
@@ -160,11 +133,9 @@ allRunningPods = []
 needsToBeScanned = []
 
 for pod in v1.list_pod_for_all_namespaces().items:
-    #print(pod.status.container_statuses[0].image)
     
     #TODO: change logic to use this, we can check the image and the ID. This works if no tag is defined.
     multiContainerPod = pod.status.container_statuses
-    containerID = pod.status.container_statuses[0].image
 
     for container in pod.spec.containers: 
         image = container.image
@@ -184,6 +155,7 @@ for pod in v1.list_pod_for_all_namespaces().items:
         URL = "https://api.snyk.io/rest/orgs/{}/container_images?names={}&version={}".format(ORGID, image, SNYKAPIVERSION)
         
         try:
+            print("Sending request to the container images endpoint for {}".format(image))
             response = reqs.get(URL, headers={'Authorization': '{}'.format(APIKEY)})
             responseJSON = response.json()
         except reqs.HTTPError as ex:
@@ -195,11 +167,9 @@ for pod in v1.list_pod_for_all_namespaces().items:
         
         #These are running on the API server but do not exist in Snyk
         #The None only works if the image has NEVER been scanned, after it has been scanned it we keep some data around
-        #if responseJSON.get('data') == None:
         if responseJSON.get('data') == None or 'self' not in responseJSON['data'][0]['relationships']['image_target_refs']['links']:
-           
-            #Cant imagine customers want to be charged a license because they run this
             if 'a1doll/k8sreconciler' not in image:
+                print("{} does not exist in Snyk, adding it to the queue to be scanned".format(image))
                 needsToBeScanned.append(image)
 
 
@@ -209,8 +179,5 @@ if len(needsToBeScanned) != 0:
 else:
     print("All images on the cluster are accounted for, skipping scanning function")
 
-#If it seems like data isnt present when it should be, from Snyk, then consider adding a sleep here to compensate.
 deleteNonRunningTargets()
-
-#clean exit so our K8s job doesnt error out
 sys.exit()
