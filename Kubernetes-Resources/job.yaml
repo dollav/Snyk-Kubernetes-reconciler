@@ -14,10 +14,27 @@ spec:
         imagePullPolicy: Always
         env:
         - name: APIKEY
-          value: "<SNYK_API_KEY>"
+          valueFrom:
+            secretKeyRef:
+              name: snyk-creds
+              key: APITOKEN
         - name: ORGID
-          value: "<SNYK_ORGID"
+          valueFrom:
+            secretKeyRef:
+              name: snyk-creds
+              key: ORGID
         - name: SNYKAPIVERSION
-          value: "<SNYK_REST_VERSION>"
+          value: "2023-11-06~beta"
+        - name:  SNYKDEBUG
+          value: "True"
+        - name: DOCKERUSER
+          valueFrom:
+            secretKeyRef:
+              name: snyk-creds
+              key: DOCKERUSERNAME
+        - name: DOCKERPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: snyk-creds
+              key: DOCKERPASSWORD
       restartPolicy: Never
-status: {}
