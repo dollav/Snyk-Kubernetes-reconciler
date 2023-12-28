@@ -144,7 +144,9 @@ for pod in v1.list_pod_for_all_namespaces().items:
 
     for container in pod.spec.containers: 
         image = container.image
-
+        
+        if 'a1doll/k8sreconciler' in image:
+            continue
         
         ##TODO: if the image we got is the image SHA, which contains @ instead of :, we wnat to cycle through our object (only multi container pod) to get the imageID
         #Which will be in the expected format. This happens when you deploy an image without a tag EG: doll1av/frontend instead of doll1av/frontend:latest
@@ -172,10 +174,21 @@ for pod in v1.list_pod_for_all_namespaces().items:
         
         #These are running on the API server but do not exist in Snyk
         #The None only works if the image has NEVER been scanned, after it has been scanned it we keep some data around
-        if responseJSON.get('data') == None or 'self' not in responseJSON['data'][0]['relationships']['image_target_refs']['links']:
-            if 'a1doll/k8sreconciler' not in image:
-                print("{} does not exist in Snyk, adding it to the queue to be scanned".format(image))
-                needsToBeScanned.append(image)
+        if responseJSON.get('data') == None:
+            print("{} does not exist in Snyk, adding it to the queue to be scanned".format(image))
+            needsToBeScanned.append(image)
+            continue
+
+        #In some cases we have the same image with multiple different SHAs, because of this we need to check each occurance in the response
+        imageExists = False
+        for target in responseJSON['data']:
+            if 'self' in target['relationships']['image_target_refs']['links']:
+                imageExists =  True
+                
+        if imageExists == False:
+            print("{} does not exist in Snyk, adding it to the queue to be scanned".format(image))
+            needsToBeScanned.append(image)
+
 
 
 #Do the work we have set out to do
