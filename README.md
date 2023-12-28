@@ -1,6 +1,10 @@
 # Snyk-Kubernetes-reconciler
 Stop-gap visibility while V3 of the enterprise monitor is not GA
 
+# Disclaimers 
+
+1. This will work with Dockerfiles
+2.  If you are looking to do cadenced runs you can easily convert this to a cronjob (https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
 
 # How to Deploy
 
@@ -15,4 +19,3 @@ kubectl create secret generic snyk-creds \
         --from-literal=APITOKEN=myToken
 ```
 After creating your secret, you can run a job with `kubectl apply -f job.yaml`. If you are looking to do cadenced runs you can easily convert this to a cronjob (https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
-
