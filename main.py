@@ -46,8 +46,8 @@ def deleteNonRunningTargets():
         containerResponseJSON = containerResponse.json()
         fullListofContainers = list(containerResponseJSON['data'])
         containerResponse.raise_for_status()
-        while(containerResponseJSON.get('data') != None and 'Next' in containerResponseJSON['links']):
-            containerResponse = reqs.get("https://api.snyk.io/{}&version={}".format(containerResponseJSON['links']['next'], SNYKAPIVERSION))
+        while(containerResponseJSON.get('data') != None and 'next' in containerResponseJSON['links']):
+            containerResponse = reqs.get("https://api.snyk.io/{}&version={}&limit=100".format(containerResponseJSON['links']['next'], SNYKAPIVERSION))
             containerResponseJSON = containerResponse.json()
             if containerResponseJSON.get('Data') != None:
                 fullListofContainers.append(containerResponseJSON['data'])
@@ -65,17 +65,17 @@ def deleteNonRunningTargets():
 
 
     try:
-        allTargetsUrl = "https://api.snyk.io/rest/orgs/{}/targets?version={}".format(ORGID, SNYKAPIVERSION)
-        targetResponse = reqs.get(allTargetsUrl, headers={'Authorization': '{}'.format(APIKEY)})
-        targetResponseJSON = targetResponse.json()
-        targetResponse.raise_for_status()
-        fullListofTargets = list(targetResponseJSON['data'])
+        allProjectsUrl = "https://api.snyk.io/rest/orgs/{}/projects?version={}&limit=100".format(ORGID, SNYKAPIVERSION)
+        projectResponse = reqs.get(allProjectsUrl, headers={'Authorization': '{}'.format(APIKEY)})
+        projectResponseJSON = projectResponse.json()
+        projectResponse.raise_for_status()
+        fullListOfProjects = list(projectResponseJSON['data'])
 
-        while(targetResponseJSON.get('data') != None and 'Next' in targetResponseJSON['links'] ):
-            targetResponse = reqs.get("https://api.snyk.io/{}&version={}".format(targetResponseJSON['links']['next'], SNYKAPIVERSION))
-            targetResponseJSON = containerResponse.json()
-            if targetResponseJSON.get('Data') != None:
-                fullListofTargets.append(containerResponseJSON['data'])
+        while(projectResponseJSON.get('data') != None and 'next' in projectResponseJSON['links'] ):
+            projectResponse = reqs.get("https://api.snyk.io/{}&version={}&limit=100".format(projectResponseJSON['links']['next'], SNYKAPIVERSION))
+            projectResponseJSON = projectResponse.json()
+            if projectResponseJSON.get('Data') != None:
+                fullListOfProjects.append(projectResponseJSON['data'])
 
     except reqs.HTTPError as ex:
         print("ERROR: some error occured dumping target JSON {}".format(targetResponseJSON))
@@ -84,7 +84,7 @@ def deleteNonRunningTargets():
     except reqs.Timeout:
         print("ERROR: Request to the Targets endpoint timed out, returning without completing")
         print("If this error looks abnormal please check https://status.snyk.io/ for any incidents")
-        raise ex        
+        raise ex       
 
 
 
@@ -104,23 +104,28 @@ def deleteNonRunningTargets():
             imageTagStripped = imageName.split(':')
             imageTagStripped = imageTagStripped[0]
 
-            if imageName not in allRunningPods and "@" not in imageName:
-
+            if imageName not in allRunningPods:
                 #TODO: change the split to replace for '_', depending on the workflow it may make more sense to create targets with <image>_<version>
                 #This really doesnt do much since it doesnt break it up in the UI. Long term itll be better to 'docker tag _' instead
                 #If thats not the way we do it, possibly removing all this and deleting on the project level (and target if the target has no projects associated with it)
                 #but that would require more logic and API calls. Mounting the docker socket might just be easier ¯\_(ツ)_/¯ 
                 imageTagStripped = imageName.split(':')
-
                 imageTagStripped = imageTagStripped[0]
-                for target in targetResponseJSON['data']:
-                    if target['attributes']['displayName'] == imageTagStripped:
-                        deleteTargetURL = "https://api.snyk.io/rest/orgs/{}/targets/{}?version={}".format(ORGID,target['id'], SNYKAPIVERSION)
+                deletedTargetIDs= []            
+                for project in fullListOfProjects:
+                    if project['relationships']['target']['data']['id'] in deletedTargetIDs:
+                        continue
+                    if imageTagStripped in project['attributes']['target_reference']:
+                        deleteTargetURL = "https://api.snyk.io/rest/orgs/{}/targets/{}?version={}".format(ORGID,project['relationships']['target']['data']['id'], SNYKAPIVERSION)
                         deleteResp = reqs.delete(deleteTargetURL, headers={'Authorization': '{}'.format(APIKEY)})
+                        deletedTargetIDs.append(project['relationships']['target']['data']['id'])
                         if deleteResp.status_code == 204:
-                            print("succesfully deleted targetID {}, based off image {}".format(target['id'], imageTagStripped))
+                            print("succesfully deleted targetID {}, based off image {}".format(project['relationships']['target']['data']['id'], imageTagStripped))
+                            continue
                         else:
-                            print("Some issue deleting targetID {}, based off image {}. Response code: {}".format(target['id'], imageTagStripped, deleteResp.status_code))
+                            print("Some issue deleting targetID {}, based off image {}. Response code: {}".format(project['relationships']['target']['data']['id'], imageTagStripped, deleteResp.status_code))
+                            continue                       
+ 
 
 
 
