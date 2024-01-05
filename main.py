@@ -190,7 +190,6 @@ for pod in v1.list_pod_for_all_namespaces().items:
             needsToBeScanned.append(image)
 
 
-
 #Do the work we have set out to do
 if len(needsToBeScanned) != 0:
     scanMissingImages(needsToBeScanned)
