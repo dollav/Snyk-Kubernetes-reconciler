@@ -104,6 +104,7 @@ def deleteNonRunningTargets():
             imageTagStripped = imageName.split(':')
             imageTagStripped = imageTagStripped[0]
 
+
             if imageName not in allRunningPods:
                 #TODO: change the split to replace for '_', depending on the workflow it may make more sense to create targets with <image>_<version>
                 #This really doesnt do much since it doesnt break it up in the UI. Long term itll be better to 'docker tag _' instead
@@ -193,7 +194,6 @@ for pod in v1.list_pod_for_all_namespaces().items:
         if imageExists == False:
             print("{} does not exist in Snyk, adding it to the queue to be scanned".format(image))
             needsToBeScanned.append(image)
-
 
 
 #Do the work we have set out to do
